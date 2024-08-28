@@ -1,0 +1,11 @@
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/uninstall.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/wit_node_uninstall.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/mylib.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/imu_pub.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/test.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/edit_cache.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/rebuild_cache.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/list_install_components.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/install.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/install/local.dir
+/home/mr_robot/test/ws/src/wit_node/build/CMakeFiles/install/strip.dir

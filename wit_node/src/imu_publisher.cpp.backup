@@ -1,0 +1,159 @@
+#include <chrono>
+#include <functional>
+#include <memory>
+#include <string>
+
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
+#include "sensor_msgs/msg/imu.hpp"
+
+/* ROM ADD */
+extern "C" {
+  #include "wit_node/serial.h"
+  #include "wit_node/REG.h"
+  #include "wit_node/wit_c_sdk.h"
+}
+#include <stdint.h>
+
+#define ACC_UPDATE		0x01
+#define GYRO_UPDATE		0x02
+#define ANGLE_UPDATE	0x04
+#define MAG_UPDATE		0x08
+#define READ_UPDATE		0x80
+
+static int fd, s_iCurBaud = 9600;
+static volatile char s_cDataUpdate = 0;
+
+static void SensorDataUpdata(uint32_t uiReg, uint32_t uiRegNum);
+
+unsigned char * port = (unsigned char *)"/dev/ttyUSB0";
+/* ROM END */
+
+using namespace std::chrono_literals;
+
+class ImuPublisher : public rclcpp::Node
+{
+  public:
+    ImuPublisher()
+    : Node("imu_publisher"), count_(0)
+    {
+      if((fd = serial_open(port , 9600)<0))
+	    {
+	      printf("open /dev/ttyUSB0 fail\n");
+	    }
+
+      WitInit(WIT_PROTOCOL_NORMAL, 0x50);
+      //printf("WIT_PROTOCOL_NORMAL OK\n");
+	    WitRegisterCallBack(SensorDataUpdata);
+      //printf("SensorDataUpdata ok\n");
+      
+	//WitInit(WIT_PROTOCOL_NORMAL, 0x50);
+	//WitSerialWriteRegister(SensorUartSend);
+//WitRegisterCallBack(CopeSensorData);
+	//AutoScanSensor();
+
+      publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
+      timer_ = this->create_wall_timer(
+      500ms, std::bind(&ImuPublisher::read_and_publish, this));
+    }
+
+  private:
+    void read_and_publish()
+    {
+      printf("In read_and_publish()\n");
+      for(i = 0; i < 3; i++)
+			    {
+				    fAcc[i] = sReg[AX+i] / 32768.0f * 16.0f;
+				    fGyro[i] = sReg[GX+i] / 32768.0f * 2000.0f;
+				    fAngle[i] = sReg[Roll+i] / 32768.0f * 180.0f;
+			    }
+
+  			  if(s_cDataUpdate & ACC_UPDATE)
+			    {
+				   printf("acc:%.3f %.3f %.3f\r\n", fAcc[0], fAcc[1], fAcc[2]);
+				   s_cDataUpdate &= ~ACC_UPDATE;
+		   	    }
+			  if(s_cDataUpdate & GYRO_UPDATE)
+			    {
+				   printf("gyro:%.3f %.3f %.3f\r\n", fGyro[0], fGyro[1], fGyro[2]);
+				   s_cDataUpdate &= ~GYRO_UPDATE;
+			    }
+			  if(s_cDataUpdate & ANGLE_UPDATE)
+			    {
+				   printf("angle:%.3f %.3f %.3f\r\n", fAngle[0], fAngle[1], fAngle[2]);
+				   s_cDataUpdate &= ~ANGLE_UPDATE;
+			    }
+			  if(s_cDataUpdate & MAG_UPDATE)
+			    {
+				   printf("mag:%d %d %d\r\n", sReg[HX], sReg[HY], sReg[HZ]);
+				   s_cDataUpdate &= ~MAG_UPDATE;
+			    }
+
+      auto message = std_msgs::msg::String();
+      message.data = "Hello, world! " + std::to_string(count_++);
+      RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
+      publisher_->publish(message);
+    }
+    rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    size_t count_;
+
+    float fAcc[3], fGyro[3], fAngle[3];
+	  int i , ret;
+	  char cBuff[1];
+};
+
+int main(int argc, char * argv[])
+{
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared<ImuPublisher>());
+  rclcpp::shutdown();
+
+  serial_close(fd);
+  return 0;
+}
+
+// static void SensorUartSend(uint8_t *p_data, uint32_t uiSize)
+// {
+// 	//SendUARTMessageLength((const char*)p_data, uiSize);
+// }
+
+static void CopeSensorData(uint32_t uiReg, uint32_t uiRegNum)
+{
+	s_cDataUpdate = 1;
+}
+
+static void SensorDataUpdata(uint32_t uiReg, uint32_t uiRegNum)
+{
+    int i;
+    for(i = 0; i < uiRegNum; i++)
+    {
+        switch(uiReg)
+        {
+//            case AX:
+//            case AY:
+            case AZ:
+				s_cDataUpdate |= ACC_UPDATE;
+            break;
+//            case GX:
+//            case GY:
+            case GZ:
+				s_cDataUpdate |= GYRO_UPDATE;
+            break;
+//            case HX:
+//            case HY:
+            case HZ:
+				s_cDataUpdate |= MAG_UPDATE;
+            break;
+//            case Roll:
+//            case Pitch:
+            case Yaw:
+				s_cDataUpdate |= ANGLE_UPDATE;
+            break;
+            default:
+				s_cDataUpdate |= READ_UPDATE;
+			break;
+        }
+		uiReg++;
+    }
+}

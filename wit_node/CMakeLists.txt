@@ -1,89 +1,32 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(wit_node)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-add_definitions(-D_GLIBCXX_USE_C99=1)
+# find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
-find_package(catkin REQUIRED COMPONENTS
-  ecl_build
-  ecl_devices
-  ecl_sigslots
-  ecl_time
-  ecl_geometry
-  roscpp
-  rospy
-  sensor_msgs
-  std_msgs
-  nodelet
-  pluginlib
-  message_generation
-)
-
-
-## Generate messages in the 'msg' folder
-add_message_files(
- FILES
- ImuGpsRaw.msg
-)
-
-## Generate added messages and services with any dependencies listed here
-generate_messages(
- DEPENDENCIES
- std_msgs
-)
-
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES wit_nodelet
-  CATKIN_DEPENDS
-  ecl_build
-  ecl_devices
-  ecl_geometry
-  ecl_sigslots
-  ecl_time
-  nodelet
-  pluginlib
-  roscpp
-  rospy
-  sensor_msgs
-  std_msgs
-)
-
-###########
-## Build ##
-###########
-
-## Specify additional locations of header files
-## Your package locations should be listed before other locations
 include_directories(
- include
-  ${catkin_INCLUDE_DIRS}
+  include
 )
 
-add_subdirectory(src)
+# Add the C library
+add_library(mylib src/wit_c_sdk.c)
+target_include_directories(mylib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 
+add_executable(imu_pub src/imu_publisher.cpp)
+ament_target_dependencies(imu_pub rclcpp std_msgs sensor_msgs)
+target_link_libraries(imu_pub mylib)
 
+install(TARGETS
+  imu_pub
+  DESTINATION lib/${PROJECT_NAME})
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ament_package()
